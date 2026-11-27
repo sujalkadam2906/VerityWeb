@@ -32,10 +32,12 @@ server {
         include fastcgi_params;
         fastcgi_param SCRIPT_FILENAME $realpath_root$fastcgi_script_name;
         fastcgi_param HTTPS $fastcgi_https if_not_empty;
-        fastcgi_param HTTP_X_FORWARDED_PROTO $http_x_forwarded_proto;
-        fastcgi_param HTTP_X_FORWARDED_FOR $http_x_forwarded_for;
-        fastcgi_param HTTP_X_FORWARDED_HOST $http_x_forwarded_host;
-        fastcgi_param HTTP_X_FORWARDED_PORT $http_x_forwarded_port;
+        fastcgi_param HTTP_X_FORWARDED_PROTO $http_x_forwarded_proto if_not_empty;
+        fastcgi_param HTTP_X_FORWARDED_FOR $http_x_forwarded_for if_not_empty;
+        fastcgi_param HTTP_X_FORWARDED_HOST $fastcgi_host;
+        fastcgi_param HTTP_HOST $fastcgi_host;
+        fastcgi_param HTTP_X_FORWARDED_PORT $fastcgi_port;
+        fastcgi_param SERVER_PORT $fastcgi_port;
         fastcgi_hide_header X-Powered-By;
         fastcgi_read_timeout 60s;
     }

@@ -7,7 +7,11 @@ use App\Http\Controllers\PublicSiteController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
-    return redirect()->route('dashboard');
+    if (auth()->check()) {
+        return redirect()->route('dashboard');
+    }
+
+    return redirect()->route('login');
 });
 
 // Public Website Route (No Auth Required)

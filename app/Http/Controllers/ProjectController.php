@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\BusinessEvidence;
 use App\Models\BusinessFact;
 use App\Models\BusinessProject;
 use App\Services\DocumentProcessingService;
@@ -13,6 +14,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -182,6 +184,25 @@ class ProjectController extends Controller
         }
 
         return back()->with('success', 'Fact status updated.');
+    }
+
+    public function destroyEvidence(Request $request, BusinessProject $project, BusinessEvidence $evidence): RedirectResponse
+    {
+        $this->authorizeOwner($request, $project);
+
+        if ($evidence->business_project_id !== $project->id) {
+            abort(403);
+        }
+
+        if ($evidence->file_path && Storage::disk('local')->exists($evidence->file_path)) {
+            Storage::disk('local')->delete($evidence->file_path);
+        }
+
+        // Delete associated facts extracted specifically from this evidence
+        BusinessFact::where('business_evidence_id', $evidence->id)->delete();
+        $evidence->delete();
+
+        return back()->with('success', 'Evidence source removed.');
     }
 
     public function confirmFacts(Request $request, BusinessProject $project, FactExtractionService $factService): RedirectResponse

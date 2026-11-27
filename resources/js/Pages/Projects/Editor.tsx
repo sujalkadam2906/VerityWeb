@@ -60,8 +60,27 @@ export default function Editor({ project }: EditorProps) {
             `Dedicated to serving ${project.city} with trusted, professional ${project.category} services.`
     );
     const [cta, setCta] = useState(project.sections_data?.cta || 'Contact Us');
+    const [storyHeadline, setStoryHeadline] = useState(
+        (project.sections_data as any)?.story_headline || 'Good things happen in welcoming places.'
+    );
+    const [storyText, setStoryText] = useState(
+        (project.sections_data as any)?.story_text || project.description || `Proudly serving ${project.city} with dedicated craft, authentic quality, and a comfortable place to feel at home.`
+    );
+    const [services, setServices] = useState<Array<{ title: string; desc: string }>>(
+        project.sections_data?.services || [
+            { title: 'Specialty Quality', desc: 'Crafted with premium ingredients and attention to every detail.' },
+            { title: 'Daily Offerings', desc: 'Fresh batches made every morning for our neighborhood.' },
+            { title: 'Friendly Gathering', desc: 'A comfortable corner for quick stops or leisurely visits.' },
+        ]
+    );
     const [operatingHours, setOperatingHours] = useState(
         project.sections_data?.operating_hours || 'Monday – Friday: 9:00 AM – 5:00 PM'
+    );
+    const [address, setAddress] = useState(
+        (project.sections_data as any)?.address || project.address || ''
+    );
+    const [phone, setPhone] = useState(
+        (project.sections_data as any)?.phone || project.phone || ''
     );
 
     // UI Viewport & State
@@ -86,8 +105,12 @@ export default function Editor({ project }: EditorProps) {
                     headline,
                     subheadline,
                     cta,
+                    story_headline: storyHeadline,
+                    story_text: storyText,
+                    services,
                     operating_hours: operatingHours,
-                    services: project.sections_data?.services,
+                    address,
+                    phone,
                 },
                 theme_settings: {
                     color,
@@ -100,6 +123,23 @@ export default function Editor({ project }: EditorProps) {
                 onSuccess: () => setSaveStatus('All changes saved'),
             }
         );
+    };
+
+    const updateServiceItem = (index: number, field: 'title' | 'desc', val: string) => {
+        const copy = [...services];
+        copy[index] = { ...copy[index], [field]: val };
+        setServices(copy);
+        markDirty();
+    };
+
+    const addServiceItem = () => {
+        setServices([...services, { title: 'New Service', desc: 'Description of service offering.' }]);
+        markDirty();
+    };
+
+    const removeServiceItem = (index: number) => {
+        setServices(services.filter((_, i) => i !== index));
+        markDirty();
     };
 
     const handleReorder = (name: string, delta: number) => {
@@ -495,13 +535,10 @@ export default function Editor({ project }: EditorProps) {
                                                         style={{ fontFamily: headingFont }}
                                                         className="mx-auto mt-3 max-w-md text-3xl leading-snug"
                                                     >
-                                                        Good things happen
-                                                        <br />
-                                                        in welcoming places.
+                                                        {storyHeadline}
                                                     </h2>
                                                     <p className="mx-auto mt-4 max-w-lg text-sm leading-7 text-stone-600">
-                                                        {project.description ||
-                                                            `Proudly serving ${project.city} with dedicated craft, authentic quality, and a comfortable place to feel at home.`}
+                                                        {storyText}
                                                     </p>
                                                 </div>
                                             )}
@@ -529,24 +566,9 @@ export default function Editor({ project }: EditorProps) {
                                                                 : ''
                                                         }`}
                                                     >
-                                                        {(
-                                                            project.sections_data?.services || [
-                                                                {
-                                                                    title: 'Specialty Quality',
-                                                                    desc: 'Crafted with premium ingredients and attention to every detail.',
-                                                                },
-                                                                {
-                                                                    title: 'Daily Offerings',
-                                                                    desc: 'Fresh batches made every morning for our neighborhood.',
-                                                                },
-                                                                {
-                                                                    title: 'Friendly Gathering',
-                                                                    desc: 'A comfortable corner for quick stops or leisurely visits.',
-                                                                },
-                                                            ]
-                                                        ).map((srv, idx) => (
+                                                        {services.map((srv, idx) => (
                                                             <div
-                                                                key={srv.title}
+                                                                key={idx}
                                                                 className="border-t border-current pt-4"
                                                             >
                                                                 <span className="text-xs font-mono">
@@ -652,16 +674,16 @@ export default function Editor({ project }: EditorProps) {
                                                         Visit Our Location
                                                     </h2>
                                                     <p className="mt-2 text-sm text-stone-700 font-medium">
-                                                        {project.address ? `${project.address}, ` : ''}{project.city}
+                                                        {address ? `${address}, ` : ''}{project.city}
                                                     </p>
-                                                    {project.phone && (
+                                                    {phone && (
                                                         <p className="mt-1 text-xs text-stone-600">
-                                                            Phone: {project.phone}
+                                                            Phone: {phone}
                                                         </p>
                                                     )}
-                                                    {project.phone && (
+                                                    {phone && (
                                                         <a
-                                                            href={`tel:${project.phone.replace(/[^0-9+]/g, '')}`}
+                                                            href={`tel:${phone.replace(/[^0-9+]/g, '')}`}
                                                             className="mt-4 inline-flex min-h-10 items-center border-b border-current text-xs font-semibold"
                                                         >
                                                             Call us directly ↗
@@ -694,50 +716,186 @@ export default function Editor({ project }: EditorProps) {
                                 </h3>
 
                                 <div className="mt-4 space-y-4">
-                                    <div>
-                                        <label className="block text-xs font-medium text-slate-700">
-                                            Headline
-                                        </label>
-                                        <input
-                                            type="text"
-                                            value={headline}
-                                            onChange={(e) => {
-                                                setHeadline(e.target.value);
-                                                markDirty();
-                                            }}
-                                            className="mt-1.5 min-h-10 w-full rounded-lg border border-slate-200 px-3 text-xs outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
-                                        />
-                                    </div>
+                                    {selectedSection === 'Hero' && (
+                                        <>
+                                            <div>
+                                                <label className="block text-xs font-medium text-slate-700">
+                                                    Headline
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    value={headline}
+                                                    onChange={(e) => {
+                                                        setHeadline(e.target.value);
+                                                        markDirty();
+                                                    }}
+                                                    className="mt-1.5 min-h-10 w-full rounded-lg border border-slate-200 px-3 text-xs outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+                                                />
+                                            </div>
 
-                                    <div>
-                                        <label className="block text-xs font-medium text-slate-700">
-                                            Description
-                                        </label>
-                                        <textarea
-                                            rows={3}
-                                            value={subheadline}
-                                            onChange={(e) => {
-                                                setSubheadline(e.target.value);
-                                                markDirty();
-                                            }}
-                                            className="mt-1.5 w-full rounded-lg border border-slate-200 p-2.5 text-xs outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
-                                        />
-                                    </div>
+                                            <div>
+                                                <label className="block text-xs font-medium text-slate-700">
+                                                    Description
+                                                </label>
+                                                <textarea
+                                                    rows={3}
+                                                    value={subheadline}
+                                                    onChange={(e) => {
+                                                        setSubheadline(e.target.value);
+                                                        markDirty();
+                                                    }}
+                                                    className="mt-1.5 w-full rounded-lg border border-slate-200 p-2.5 text-xs outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+                                                />
+                                            </div>
 
-                                    <div>
-                                        <label className="block text-xs font-medium text-slate-700">
-                                            Button label
-                                        </label>
-                                        <input
-                                            type="text"
-                                            value={cta}
-                                            onChange={(e) => {
-                                                setCta(e.target.value);
-                                                markDirty();
-                                            }}
-                                            className="mt-1.5 min-h-10 w-full rounded-lg border border-slate-200 px-3 text-xs outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
-                                        />
-                                    </div>
+                                            <div>
+                                                <label className="block text-xs font-medium text-slate-700">
+                                                    Button label
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    value={cta}
+                                                    onChange={(e) => {
+                                                        setCta(e.target.value);
+                                                        markDirty();
+                                                    }}
+                                                    className="mt-1.5 min-h-10 w-full rounded-lg border border-slate-200 px-3 text-xs outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+                                                />
+                                            </div>
+                                        </>
+                                    )}
+
+                                    {selectedSection === 'Story' && (
+                                        <>
+                                            <div>
+                                                <label className="block text-xs font-medium text-slate-700">
+                                                    Story Heading
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    value={storyHeadline}
+                                                    onChange={(e) => {
+                                                        setStoryHeadline(e.target.value);
+                                                        markDirty();
+                                                    }}
+                                                    className="mt-1.5 min-h-10 w-full rounded-lg border border-slate-200 px-3 text-xs outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+                                                />
+                                            </div>
+
+                                            <div>
+                                                <label className="block text-xs font-medium text-slate-700">
+                                                    About & Story Copy
+                                                </label>
+                                                <textarea
+                                                    rows={4}
+                                                    value={storyText}
+                                                    onChange={(e) => {
+                                                        setStoryText(e.target.value);
+                                                        markDirty();
+                                                    }}
+                                                    className="mt-1.5 w-full rounded-lg border border-slate-200 p-2.5 text-xs outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+                                                />
+                                            </div>
+                                        </>
+                                    )}
+
+                                    {selectedSection === 'Services' && (
+                                        <div className="space-y-3">
+                                            <div className="flex items-center justify-between">
+                                                <span className="text-xs font-medium text-slate-700">Service Offerings</span>
+                                                <button
+                                                    type="button"
+                                                    onClick={addServiceItem}
+                                                    className="text-xs font-semibold text-indigo-600 hover:underline"
+                                                >
+                                                    + Add service
+                                                </button>
+                                            </div>
+                                            {services.map((srv, idx) => (
+                                                <div key={idx} className="rounded-lg border border-slate-100 bg-slate-50/60 p-2.5 space-y-1.5">
+                                                    <div className="flex items-center justify-between">
+                                                        <span className="text-[10px] font-mono text-slate-400">0{idx + 1}</span>
+                                                        {services.length > 1 && (
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => removeServiceItem(idx)}
+                                                                className="text-xs text-slate-400 hover:text-red-600"
+                                                            >
+                                                                ×
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                    <input
+                                                        type="text"
+                                                        value={srv.title}
+                                                        onChange={(e) => updateServiceItem(idx, 'title', e.target.value)}
+                                                        placeholder="Service Title"
+                                                        className="w-full rounded border border-slate-200 bg-white px-2 py-1 text-xs font-medium outline-none focus:ring-1 focus:ring-indigo-500"
+                                                    />
+                                                    <textarea
+                                                        rows={2}
+                                                        value={srv.desc}
+                                                        onChange={(e) => updateServiceItem(idx, 'desc', e.target.value)}
+                                                        placeholder="Service Description"
+                                                        className="w-full rounded border border-slate-200 bg-white p-2 text-xs outline-none focus:ring-1 focus:ring-indigo-500"
+                                                    />
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+
+                                    {selectedSection === 'Operating Hours' && (
+                                        <div>
+                                            <label className="block text-xs font-medium text-slate-700">
+                                                Operating Schedule
+                                            </label>
+                                            <textarea
+                                                rows={3}
+                                                value={operatingHours}
+                                                onChange={(e) => {
+                                                    setOperatingHours(e.target.value);
+                                                    markDirty();
+                                                }}
+                                                placeholder="e.g. Mon–Fri: 9:00 AM – 5:00 PM"
+                                                className="mt-1.5 w-full rounded-lg border border-slate-200 p-2.5 text-xs outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+                                            />
+                                        </div>
+                                    )}
+
+                                    {(selectedSection === 'Location & Contact' || selectedSection === 'Map & Contact') && (
+                                        <div className="space-y-3">
+                                            <div>
+                                                <label className="block text-xs font-medium text-slate-700">
+                                                    Street Address
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    value={address}
+                                                    onChange={(e) => {
+                                                        setAddress(e.target.value);
+                                                        markDirty();
+                                                    }}
+                                                    placeholder="e.g. 124 Maple Street"
+                                                    className="mt-1.5 min-h-10 w-full rounded-lg border border-slate-200 px-3 text-xs outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="block text-xs font-medium text-slate-700">
+                                                    Phone Number
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    value={phone}
+                                                    onChange={(e) => {
+                                                        setPhone(e.target.value);
+                                                        markDirty();
+                                                    }}
+                                                    placeholder="e.g. (503) 555-0142"
+                                                    className="mt-1.5 min-h-10 w-full rounded-lg border border-slate-200 px-3 text-xs outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+                                                />
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
 

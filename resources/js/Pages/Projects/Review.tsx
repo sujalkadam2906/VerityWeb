@@ -65,25 +65,31 @@ export default function Review({ project, facts = [], evidences = [], hasConflic
 
     // Real grounded sources from evidences or fallback
     const displaySources = evidences.length > 0 ? evidences.map((e) => ({
+        id: e.id,
         name: e.source_url || e.file_name,
         type: e.file_type === 'url' ? 'Web source' : 'Uploaded document',
         detail: e.status === 'processed' ? (e.has_text ? 'Text extracted' : 'Metadata verified') : (e.status === 'scanned_needs_ocr' ? 'Scanned document' : 'Failed to fetch'),
         status: e.status === 'processed' ? 'Verified' : (e.status === 'scanned_needs_ocr' ? 'Needs review' : 'Unavailable'),
         kind: e.file_type === 'url' ? 'web' : 'doc',
+        isUploaded: e.file_type !== 'url',
     })) : [
         {
+            id: null,
             name: 'Direct Business Intake',
             type: 'Owner submission',
             detail: `${project.name} · Verified profile`,
             status: 'Verified',
             kind: 'web',
+            isUploaded: false,
         },
         ...(project.links || []).filter(Boolean).map((link) => ({
+            id: null,
             name: link,
             type: 'Online Presence Link',
             detail: 'Cross-referenced link',
             status: 'Verified',
             kind: 'web',
+            isUploaded: false,
         })),
     ];
 
@@ -102,12 +108,12 @@ export default function Review({ project, facts = [], evidences = [], hasConflic
         });
     };
 
-    const handleResolveConflict = (factId: number, action: 'confirm' | 'reject') => {
+    const handleResolveConflict = (factId: number, action: 'confirm' | 'reject', customVal?: string) => {
         router.post(
             route('projects.facts.resolve', [project.id, factId]),
             {
                 action,
-                edited_value: editedValue || undefined,
+                edited_value: customVal !== undefined ? customVal : (editedValue || undefined),
             },
             {
                 preserveScroll: true,
@@ -117,6 +123,14 @@ export default function Review({ project, facts = [], evidences = [], hasConflic
                 },
             }
         );
+    };
+
+    const handleDeleteEvidence = (evidenceId: number) => {
+        if (confirm('Are you sure you want to remove this source document and its extracted facts?')) {
+            router.delete(route('projects.evidences.destroy', [project.id, evidenceId]), {
+                preserveScroll: true,
+            });
+        }
     };
 
     const verifiedCount = displayFacts.filter((f) => f.status === 'confirmed').length + (isConfirmed ? 1 : 0);
@@ -244,21 +258,68 @@ export default function Review({ project, facts = [], evidences = [], hasConflic
                                             {fact.conflict_explanation}
                                         </p>
                                     )}
-                                    <div className="mt-4 flex flex-wrap items-center gap-3">
-                                        <button
-                                            type="button"
-                                            onClick={() => handleResolveConflict(fact.id, 'confirm')}
-                                            className="inline-flex min-h-9 items-center justify-center rounded-lg bg-emerald-600 px-4 text-xs font-semibold text-white hover:bg-emerald-700"
-                                        >
-                                            Use this value
-                                        </button>
-                                        <button
-                                            type="button"
-                                            onClick={() => handleResolveConflict(fact.id, 'reject')}
-                                            className="inline-flex min-h-9 items-center justify-center rounded-lg border border-slate-200 px-4 text-xs font-semibold text-slate-700 hover:bg-slate-50"
-                                        >
-                                            Reject
-                                        </button>
+                                    <div className="mt-4">
+                                        {resolvingFactId === fact.id ? (
+                                            <div className="space-y-3 rounded-lg border border-indigo-200 bg-indigo-50/40 p-3">
+                                                <label className="block text-xs font-semibold text-indigo-900">
+                                                    Custom corrected value for {fact.key}:
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    value={editedValue}
+                                                    onChange={(e) => setEditedValue(e.target.value)}
+                                                    className="min-h-9 w-full rounded border border-slate-300 bg-white px-3 text-xs outline-none focus:ring-2 focus:ring-indigo-500"
+                                                    placeholder="Enter corrected value..."
+                                                />
+                                                <div className="flex gap-2">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleResolveConflict(fact.id, 'confirm', editedValue)}
+                                                        disabled={!editedValue.trim()}
+                                                        className="inline-flex min-h-8 items-center justify-center rounded bg-indigo-600 px-3 text-xs font-semibold text-white hover:bg-indigo-700 disabled:opacity-50"
+                                                    >
+                                                        Save & Use
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                            setResolvingFactId(null);
+                                                            setEditedValue('');
+                                                        }}
+                                                        className="inline-flex min-h-8 items-center justify-center rounded border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-600 hover:bg-slate-50"
+                                                    >
+                                                        Cancel
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <div className="flex flex-wrap items-center gap-3">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleResolveConflict(fact.id, 'confirm')}
+                                                    className="inline-flex min-h-9 items-center justify-center rounded-lg bg-emerald-600 px-4 text-xs font-semibold text-white hover:bg-emerald-700"
+                                                >
+                                                    Use this value
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setResolvingFactId(fact.id);
+                                                        setEditedValue(fact.value);
+                                                    }}
+                                                    className="inline-flex min-h-9 items-center justify-center rounded-lg border border-indigo-200 bg-indigo-50 px-3.5 text-xs font-semibold text-indigo-700 hover:bg-indigo-100"
+                                                >
+                                                    Edit & Use
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleResolveConflict(fact.id, 'reject')}
+                                                    className="inline-flex min-h-9 items-center justify-center rounded-lg border border-slate-200 px-4 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                                                >
+                                                    Reject
+                                                </button>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             ))}
@@ -434,11 +495,23 @@ export default function Review({ project, facts = [], evidences = [], hasConflic
                                             </p>
                                             <p className="text-[11px] text-slate-500">{s.detail}</p>
                                         </div>
-                                        <span className={`rounded px-2 py-0.5 text-[10px] font-semibold ${
-                                            s.status === 'Verified' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'
-                                        }`}>
-                                            {s.status}
-                                        </span>
+                                        <div className="flex items-center gap-2">
+                                            <span className={`rounded px-2 py-0.5 text-[10px] font-semibold ${
+                                                s.status === 'Verified' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'
+                                            }`}>
+                                                {s.status}
+                                            </span>
+                                            {s.isUploaded && s.id && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleDeleteEvidence(s.id as number)}
+                                                    className="text-slate-400 hover:text-red-600 text-xs px-1"
+                                                    title="Remove source"
+                                                >
+                                                    ×
+                                                </button>
+                                            )}
+                                        </div>
                                     </div>
                                 </div>
                             ))}

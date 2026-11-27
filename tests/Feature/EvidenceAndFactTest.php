@@ -184,4 +184,124 @@ class EvidenceAndFactTest extends TestCase
         $project->refresh();
         $this->assertEquals('541-555-9999', $project->phone);
     }
+
+    public function test_evidence_can_be_deleted_by_owner_and_cleans_up_facts(): void
+    {
+        $userA = User::factory()->create();
+        $userB = User::factory()->create();
+
+        $project = BusinessProject::create([
+            'user_id' => $userA->id,
+            'name' => 'Coastal Roasters',
+            'city' => 'Newport',
+            'slug' => 'coastal-roasters',
+        ]);
+
+        $evidence = BusinessEvidence::create([
+            'business_project_id' => $project->id,
+            'file_name' => 'Menu.pdf',
+            'file_type' => 'pdf',
+            'file_path' => 'evidence/' . $project->id . '/test_menu.pdf',
+            'status' => 'processed',
+        ]);
+
+        Storage::disk('local')->put($evidence->file_path, 'dummy content');
+
+        $fact = BusinessFact::create([
+            'business_project_id' => $project->id,
+            'business_evidence_id' => $evidence->id,
+            'fact_type' => 'contact',
+            'fact_key' => 'phone',
+            'fact_value' => '541-555-4321',
+            'source_label' => 'Menu.pdf',
+            'status' => 'confirmed',
+        ]);
+
+        // User B cannot delete User A's evidence
+        $resB = $this->actingAs($userB)->delete("/projects/{$project->id}/evidences/{$evidence->id}");
+        $resB->assertStatus(403);
+
+        // User A deletes evidence
+        $resA = $this->actingAs($userA)->delete("/projects/{$project->id}/evidences/{$evidence->id}");
+        $resA->assertSessionHasNoErrors();
+
+        // Verify evidence and associated facts are deleted
+        $this->assertDatabaseMissing('business_evidences', ['id' => $evidence->id]);
+        $this->assertDatabaseMissing('business_facts', ['id' => $fact->id]);
+        Storage::disk('local')->assertMissing($evidence->file_path);
+    }
+
+    public function test_identity_disambiguation_detects_similar_business_in_same_city(): void
+    {
+        $user = User::factory()->create();
+
+        // Existing business
+        BusinessProject::create([
+            'user_id' => $user->id,
+            'name' => 'Apex Fitness Club',
+            'city' => 'Seattle',
+            'slug' => 'apex-fitness-club',
+        ]);
+
+        // New project with similar name in same city
+        $newProject = BusinessProject::create([
+            'user_id' => $user->id,
+            'name' => 'Apex Fitness',
+            'city' => 'Seattle',
+            'slug' => 'apex-fitness',
+        ]);
+
+        $factService = new FactExtractionService();
+        $factService->syncIntakeFacts($newProject);
+
+        $this->assertDatabaseHas('business_facts', [
+            'business_project_id' => $newProject->id,
+            'fact_key' => 'identity_disambiguation',
+            'status' => 'needs_review',
+        ]);
+    }
+
+    public function test_conflict_can_be_resolved_with_custom_edited_value(): void
+    {
+        $user = User::factory()->create();
+        $project = BusinessProject::create([
+            'user_id' => $user->id,
+            'name' => 'Alpine Outfitters',
+            'city' => 'Boulder',
+            'phone' => '303-555-1111',
+            'slug' => 'alpine-outfitters',
+        ]);
+
+        $factService = new FactExtractionService();
+        $factService->syncIntakeFacts($project);
+
+        $evidence = BusinessEvidence::create([
+            'business_project_id' => $project->id,
+            'file_name' => 'Catalog.pdf',
+            'file_type' => 'pdf',
+            'extracted_text' => 'Call 303-555-2222',
+            'status' => 'processed',
+            'metadata' => ['found_phones' => ['303-555-2222']],
+        ]);
+
+        $factService->extractFromEvidence($evidence);
+
+        $factToResolve = BusinessFact::where('business_project_id', $project->id)
+            ->where('status', 'conflicting')
+            ->first();
+
+        // Resolve with custom edited value
+        $response = $this->actingAs($user)->post("/projects/{$project->id}/facts/{$factToResolve->id}/resolve", [
+            'action' => 'confirm',
+            'edited_value' => '303-555-3333',
+        ]);
+        $response->assertSessionHasNoErrors();
+
+        $factToResolve->refresh();
+        $this->assertEquals('confirmed', $factToResolve->status);
+        $this->assertEquals('303-555-3333', $factToResolve->fact_value);
+
+        $project->refresh();
+        $this->assertEquals('303-555-3333', $project->phone);
+    }
 }

@@ -262,9 +262,12 @@ PROMPT;
                     continue;
                 }
 
+                $rawBody = $response->body();
+                $scrubbedBody = !empty($this->apiKey) ? str_replace($this->apiKey, '[REDACTED]', $rawBody) : $rawBody;
+
                 Log::warning("Gemini API call failed with status {$status}", [
                     'model' => $this->model,
-                    'error' => Str::limit($response->body(), 300),
+                    'error' => Str::limit($scrubbedBody, 300),
                 ]);
                 return null;
             } catch (\Throwable $e) {
@@ -273,7 +276,10 @@ PROMPT;
                     $delayMs *= 2;
                     continue;
                 }
-                Log::warning("Gemini API network exception: " . $e->getMessage(), [
+                $rawMsg = $e->getMessage();
+                $scrubbedMsg = !empty($this->apiKey) ? str_replace($this->apiKey, '[REDACTED]', $rawMsg) : $rawMsg;
+
+                Log::warning("Gemini API network exception: " . $scrubbedMsg, [
                     'model' => $this->model,
                 ]);
                 return null;

@@ -24,6 +24,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/projects/{project}/review', [ProjectController::class, 'review'])->name('projects.review');
     Route::post('/projects/{project}/confirm-facts', [ProjectController::class, 'confirmFacts'])->name('projects.confirm-facts');
     Route::post('/projects/{project}/facts/{fact}/resolve', [ProjectController::class, 'resolveFact'])->name('projects.facts.resolve');
+    Route::delete('/projects/{project}/evidences/{evidence}', [ProjectController::class, 'destroyEvidence'])->name('projects.evidences.destroy');
 
     // Generation
     Route::get('/projects/{project}/generation', [ProjectController::class, 'generation'])->name('projects.generation');

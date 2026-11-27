@@ -16,10 +16,16 @@ interface ProjectData {
         spacing?: number;
     } | null;
     sections_data: {
+        sections?: string[];
+        hidden?: string[];
         headline?: string;
         subheadline?: string;
         cta?: string;
+        story_headline?: string;
+        story_text?: string;
         operating_hours?: string;
+        address?: string;
+        phone?: string;
         services?: Array<{ title: string; desc: string }>;
     } | null;
 }
@@ -34,11 +40,37 @@ export default function Public({ project }: PublicProps) {
     const spacing = project.theme_settings?.spacing || 48;
 
     const headline =
-        project.sections_data?.headline || 'Good coffee. Better company.';
+        project.sections_data?.headline || `${project.name} · ${project.category}`;
     const subheadline =
         project.sections_data?.subheadline ||
-        `Thoughtfully brewed coffee, seasonal bakes, and a welcoming corner in ${project.city}.`;
-    const cta = project.sections_data?.cta || 'Explore our menu';
+        `Thoughtfully serving ${project.city} with trusted, authentic ${project.category} quality.`;
+    const cta = project.sections_data?.cta || 'Explore our services';
+
+    const storyHeadline =
+        project.sections_data?.story_headline || 'A familiar face. A favorite corner.';
+    const storyText =
+        project.sections_data?.story_text ||
+        project.description ||
+        `Proudly serving the ${project.city} community with dedicated craft, authentic local ingredients, and a warm neighborhood welcome.`;
+
+    const services = project.sections_data?.services || [
+        {
+            title: 'Specialty Quality',
+            desc: 'Ethically sourced materials and balanced, dedicated execution.',
+        },
+        {
+            title: 'Daily Offerings',
+            desc: 'Fresh batches and daily availability for our neighborhood.',
+        },
+        {
+            title: 'Neighborhood Gathering',
+            desc: 'A calm space designed for productive visits and community connection.',
+        },
+    ];
+
+    const operatingHours = project.sections_data?.operating_hours;
+    const address = project.sections_data?.address || project.address;
+    const phone = project.sections_data?.phone || project.phone;
 
     const headingFont =
         font === 'Modern'
@@ -46,6 +78,16 @@ export default function Public({ project }: PublicProps) {
             : font === 'Classic'
             ? 'Georgia, serif'
             : "'DM Serif Display', Georgia, serif";
+
+    const orderedSections = project.sections_data?.sections || [
+        'Hero',
+        'Story',
+        'Services',
+        'Operating Hours',
+        'Location & Contact',
+    ];
+    const hiddenSections = project.sections_data?.hidden || [];
+    const activeSections = orderedSections.filter((s) => !hiddenSections.includes(s));
 
     return (
         <div className="min-h-screen bg-[#f8f5ed] font-sans text-[#304735]">
@@ -84,169 +126,149 @@ export default function Public({ project }: PublicProps) {
                 </div>
             </nav>
 
-            {/* Hero Section */}
-            <section
-                className="px-6 text-center sm:px-12"
-                style={{ paddingTop: spacing + 20, paddingBottom: spacing + 10 }}
-            >
-                <p className="text-xs uppercase tracking-[0.2em] text-[#596451] font-semibold">
-                    {project.city} · {project.category}
-                </p>
-                <h1
-                    style={{ fontFamily: headingFont }}
-                    className="mx-auto mt-5 max-w-2xl text-5xl leading-tight sm:text-6xl"
-                >
-                    {headline}
-                </h1>
-                <p className="mx-auto mt-5 max-w-lg text-base leading-7 text-[#596451]">
-                    {subheadline}
-                </p>
-                <a
-                    href="#services"
-                    style={{ backgroundColor: color }}
-                    className="mt-8 inline-flex min-h-12 items-center gap-3 rounded px-8 text-sm font-semibold text-white shadow-md transition-opacity hover:opacity-90"
-                >
-                    {cta} <span>↗</span>
-                </a>
-            </section>
-
-            {/* Illustrated Landscape Banner */}
-            <div className="mx-auto max-w-4xl px-6 pb-12">
-                <div className="overflow-hidden rounded-2xl shadow-lg bg-stone-200 h-64 sm:h-80 flex items-center justify-center">
-                    <svg
-                        role="img"
-                        aria-label="Artisan café landscape"
-                        viewBox="0 0 600 400"
-                        className="h-full w-full object-cover"
-                    >
-                        <path fill="#54735e" d="M0 280 160 100l150 180 120-120 170 180v60H0z" />
-                        <circle fill="#f4d6a3" cx="440" cy="90" r="45" />
-                    </svg>
-                </div>
-            </div>
-
-            {/* Story Section */}
-            <section
-                id="story"
-                className="px-8 text-center"
-                style={{ paddingTop: spacing, paddingBottom: spacing }}
-            >
-                <p className="text-xs uppercase tracking-[0.2em] text-[#596451] font-semibold">
-                    More than a business
-                </p>
-                <h2
-                    style={{ fontFamily: headingFont }}
-                    className="mx-auto mt-4 max-w-lg text-3xl leading-snug sm:text-4xl"
-                >
-                    A familiar face. A favorite corner.
-                    <br />
-                    Something made with care.
-                </h2>
-                <p className="mx-auto mt-5 max-w-xl text-sm leading-7 text-[#596451]">
-                    {project.description ||
-                        `Proudly serving the ${project.city} community with dedicated craft, authentic local ingredients, and a warm neighborhood welcome.`}
-                </p>
-            </section>
-
-            {/* Services Section */}
-            <section
-                id="services"
-                className="bg-[#e9eddf] px-8 sm:px-14"
-                style={{ paddingTop: spacing + 10, paddingBottom: spacing + 10 }}
-            >
-                <div className="mx-auto max-w-5xl">
-                    <div className="mb-8 flex items-center justify-between">
-                        <h2 style={{ fontFamily: headingFont }} className="text-3xl">
-                            What we offer
-                        </h2>
-                        <span className="text-xs font-semibold text-[#596451]">
-                            Authentic & Grounded
-                        </span>
-                    </div>
-
-                    <div className="grid gap-8 sm:grid-cols-3">
-                        {(
-                            project.sections_data?.services || [
-                                {
-                                    title: 'Specialty Roasts',
-                                    desc: 'Ethically sourced single origins and balanced daily house blends.',
-                                },
-                                {
-                                    title: 'Fresh Bakes',
-                                    desc: 'Warm croissants, brioche, and seasonal tarts out of the oven every morning.',
-                                },
-                                {
-                                    title: 'Neighborhood Gathering',
-                                    desc: 'A calm space designed for productive work or catching up with friends.',
-                                },
-                            ]
-                        ).map((s, idx) => (
-                            <div key={s.title} className="border-t border-[#9ba991] pt-5">
-                                <span className="font-mono text-xs text-[#596451]">0{idx + 1}</span>
-                                <h3 style={{ fontFamily: headingFont }} className="mt-3 text-2xl">
-                                    {s.title}
-                                </h3>
-                                <p className="mt-2 text-sm leading-6 text-[#596451]">{s.desc}</p>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            </section>
-
-            {/* Operating Hours Section */}
-            {project.sections_data?.operating_hours && (
-                <section
-                    id="hours"
-                    className="px-8 text-center bg-[#f0ecdf]"
-                    style={{ paddingTop: spacing, paddingBottom: spacing }}
-                >
-                    <p className="text-xs uppercase tracking-widest text-[#596451] font-semibold">
-                        Operating Schedule
-                    </p>
-                    <h2 style={{ fontFamily: headingFont }} className="mt-3 text-3xl">
-                        Hours of Operation
-                    </h2>
-                    <p className="mt-3 text-base font-medium text-[#304735]">
-                        {project.sections_data.operating_hours}
-                    </p>
-                    <p className="mt-1 text-xs text-[#596451]">
-                        Verified Business Schedule
-                    </p>
-                </section>
-            )}
-
-            {/* Contact & Location Section */}
-            <section
-                id="contact"
-                className="px-8 text-center"
-                style={{ paddingTop: spacing + 10, paddingBottom: spacing + 10 }}
-            >
-                <p className="text-xs uppercase tracking-widest text-[#596451] font-semibold">
-                    Come Say Hello
-                </p>
-                <h2 style={{ fontFamily: headingFont }} className="mt-3 text-4xl">
-                    We welcome your visit.
-                </h2>
-                <div className="mt-4 space-y-1 text-sm text-[#596451]">
-                    <p className="font-medium">
-                        {project.address ? `${project.address}, ` : ''}{project.city}
-                    </p>
-                    {project.phone && (
-                        <p>Phone: {project.phone}</p>
-                    )}
-                </div>
-                {project.phone && (
-                    <div className="mt-6 flex justify-center gap-4">
-                        <a
-                            href={`tel:${project.phone.replace(/[^0-9+]/g, '')}`}
-                            style={{ backgroundColor: color }}
-                            className="inline-flex min-h-11 items-center gap-2 rounded px-6 text-xs font-semibold text-white shadow-sm"
+            {/* Dynamic Active Sections based on Editor Order & Customization */}
+            {activeSections.map((s) => (
+                <React.Fragment key={s}>
+                    {/* Hero Section */}
+                    {s === 'Hero' && (
+                        <section
+                            className="px-6 text-center sm:px-12"
+                            style={{ paddingTop: spacing + 20, paddingBottom: spacing + 10 }}
                         >
-                            Call our business
-                        </a>
-                    </div>
-                )}
-            </section>
+                            <p className="text-xs uppercase tracking-[0.2em] text-[#596451] font-semibold">
+                                {project.city} · {project.category}
+                            </p>
+                            <h1
+                                style={{ fontFamily: headingFont }}
+                                className="mx-auto mt-5 max-w-2xl text-5xl leading-tight sm:text-6xl"
+                            >
+                                {headline}
+                            </h1>
+                            <p className="mx-auto mt-5 max-w-lg text-base leading-7 text-[#596451]">
+                                {subheadline}
+                            </p>
+                            <a
+                                href="#services"
+                                style={{ backgroundColor: color }}
+                                className="mt-8 inline-flex min-h-12 items-center gap-3 rounded px-8 text-sm font-semibold text-white shadow-md transition-opacity hover:opacity-90"
+                            >
+                                {cta} <span>↗</span>
+                            </a>
+                        </section>
+                    )}
+
+                    {/* Story Section */}
+                    {s === 'Story' && (
+                        <section
+                            id="story"
+                            className="px-8 text-center"
+                            style={{ paddingTop: spacing, paddingBottom: spacing }}
+                        >
+                            <p className="text-xs uppercase tracking-[0.2em] text-[#596451] font-semibold">
+                                More than a business
+                            </p>
+                            <h2
+                                style={{ fontFamily: headingFont }}
+                                className="mx-auto mt-4 max-w-lg text-3xl leading-snug sm:text-4xl"
+                            >
+                                {storyHeadline}
+                            </h2>
+                            <p className="mx-auto mt-5 max-w-xl text-sm leading-7 text-[#596451]">
+                                {storyText}
+                            </p>
+                        </section>
+                    )}
+
+                    {/* Services Section */}
+                    {s === 'Services' && (
+                        <section
+                            id="services"
+                            className="bg-[#e9eddf] px-8 sm:px-14"
+                            style={{ paddingTop: spacing + 10, paddingBottom: spacing + 10 }}
+                        >
+                            <div className="mx-auto max-w-5xl">
+                                <div className="mb-8 flex items-center justify-between">
+                                    <h2 style={{ fontFamily: headingFont }} className="text-3xl">
+                                        What we offer
+                                    </h2>
+                                    <span className="text-xs font-semibold text-[#596451]">
+                                        Authentic & Grounded
+                                    </span>
+                                </div>
+
+                                <div className="grid gap-8 sm:grid-cols-3">
+                                    {services.map((srv, idx) => (
+                                        <div key={idx} className="border-t border-[#9ba991] pt-5">
+                                            <span className="font-mono text-xs text-[#596451]">0{idx + 1}</span>
+                                            <h3 style={{ fontFamily: headingFont }} className="mt-3 text-2xl">
+                                                {srv.title}
+                                            </h3>
+                                            <p className="mt-2 text-sm leading-6 text-[#596451]">{srv.desc}</p>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </section>
+                    )}
+
+                    {/* Operating Hours Section */}
+                    {s === 'Operating Hours' && operatingHours && (
+                        <section
+                            id="hours"
+                            className="px-8 text-center bg-[#f0ecdf]"
+                            style={{ paddingTop: spacing, paddingBottom: spacing }}
+                        >
+                            <p className="text-xs uppercase tracking-widest text-[#596451] font-semibold">
+                                Operating Schedule
+                            </p>
+                            <h2 style={{ fontFamily: headingFont }} className="mt-3 text-3xl">
+                                Hours of Operation
+                            </h2>
+                            <p className="mt-3 text-base font-medium text-[#304735]">
+                                {operatingHours}
+                            </p>
+                            <p className="mt-1 text-xs text-[#596451]">
+                                Verified Business Schedule
+                            </p>
+                        </section>
+                    )}
+
+                    {/* Contact & Location Section */}
+                    {(s === 'Location & Contact' || s === 'Map & Contact') && (
+                        <section
+                            id="contact"
+                            className="px-8 text-center"
+                            style={{ paddingTop: spacing + 10, paddingBottom: spacing + 10 }}
+                        >
+                            <p className="text-xs uppercase tracking-widest text-[#596451] font-semibold">
+                                Come Say Hello
+                            </p>
+                            <h2 style={{ fontFamily: headingFont }} className="mt-3 text-4xl">
+                                We welcome your visit.
+                            </h2>
+                            <div className="mt-4 space-y-1 text-sm text-[#596451]">
+                                <p className="font-medium">
+                                    {address ? `${address}, ` : ''}{project.city}
+                                </p>
+                                {phone && (
+                                    <p>Phone: {phone}</p>
+                                )}
+                            </div>
+                            {phone && (
+                                <div className="mt-6 flex justify-center gap-4">
+                                    <a
+                                        href={`tel:${phone.replace(/[^0-9+]/g, '')}`}
+                                        style={{ backgroundColor: color }}
+                                        className="inline-flex min-h-11 items-center gap-2 rounded px-6 text-xs font-semibold text-white shadow-sm"
+                                    >
+                                        Call our business
+                                    </a>
+                                </div>
+                            )}
+                        </section>
+                    )}
+                </React.Fragment>
+            ))}
 
             {/* Public Footer */}
             <footer

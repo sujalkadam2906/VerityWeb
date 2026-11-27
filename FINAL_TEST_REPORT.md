@@ -1,9 +1,9 @@
 # VerityWeb — Final Test Report
 
-**Execution Date:** November 2026  
+**Execution Date:** November 27, 2026  
 **Test Frameworks:** PHPUnit 12.5.12, TypeScript 5.7.0, Vite 6.4.6  
-**Total Tests:** 54  
-**Total Assertions:** 199  
+**Total Tests:** 58  
+**Total Assertions:** 217  
 **Failures / Errors:** 0  
 **Status:** **100% PASSED**
 
@@ -13,71 +13,17 @@
 
 ```
    PASS  Tests\Unit\ExampleTest
-  ✓ that true is true                                                    0.01s
-
    PASS  Tests\Feature\ExampleTest
-  ✓ the application returns a successful response                        0.14s
-
    PASS  Tests\Feature\Auth\AuthenticationTest
-  ✓ login screen can be rendered                                         0.12s
-  ✓ users can authenticate using the login screen                        0.11s
-  ✓ users can not authenticate with invalid password                     0.10s
-  ✓ users can logout                                                     0.09s
-
    PASS  Tests\Feature\Auth\EmailVerificationTest
-  ✓ email verification screen can be rendered                            0.11s
-  ✓ email can be verified                                                0.12s
-  ✓ email is not verified with invalid hash                              0.10s
-
    PASS  Tests\Feature\Auth\PasswordConfirmationTest
-  ✓ confirm password screen can be rendered                              0.10s
-  ✓ password can be confirmed                                            0.10s
-  ✓ password is not confirmed with invalid password                      0.10s
-
    PASS  Tests\Feature\Auth\PasswordResetTest
-  ✓ reset password link screen can be rendered                           0.10s
-  ✓ reset password link can be requested                                 0.11s
-  ✓ reset password screen can be rendered                                0.10s
-  ✓ password can be reset with valid token                               0.11s
-
    PASS  Tests\Feature\Auth\PasswordUpdateTest
-  ✓ password can be updated                                              0.11s
-  ✓ correct password must be provided to update password                 0.10s
-
    PASS  Tests\Feature\Auth\RegistrationTest
-  ✓ registration screen can be rendered                                  0.11s
-  ✓ new users can register                                               0.12s
-
    PASS  Tests\Feature\DashboardTest
-  ✓ dashboard displays authenticated user projects                       0.11s
-  ✓ dashboard metrics show correct counts                                0.10s
-
    PASS  Tests\Feature\ProfileTest
-  ✓ profile page is displayed                                            0.11s
-  ✓ profile information can be updated                                   0.11s
-  ✓ email verification status is unchanged when email unvaried           0.10s
-  ✓ user can delete their account                                        0.11s
-  ✓ correct password must be provided to delete account                  0.10s
-
    PASS  Tests\Feature\UserFlowTest
-  ✓ complete end to end user journey                                     0.45s
-
    PASS  Tests\Feature\MultiUserSecurityTest
-  ✓ user cannot view another users project                               0.11s
-  ✓ user cannot update another users project sections                    0.10s
-  ✓ user cannot publish another users project                            0.10s
-  ✓ user cannot unpublish another users project                          0.10s
-  ✓ user cannot duplicate another users project                          0.10s
-  ✓ user cannot delete another users project                             0.10s
-  ✓ user cannot view another users review page                           0.10s
-  ✓ user cannot view another users generation page                       0.10s
-  ✓ user cannot view another users editor page                           0.10s
-  ✓ user cannot view another users publish page                          0.10s
-  ✓ published site is accessible publicly by slug                        0.10s
-  ✓ unpublished site returns 404 for public visitors                     0.10s
-  ✓ public site does not leak user email or timestamps                   0.10s
-  ✓ duplicate slug generation avoids collision                           0.11s
-
    PASS  Tests\Feature\EvidenceAndFactTest
   ✓ document processing service extracts pdf text                        0.02s
   ✓ scanned pdf without text is detected                                 0.01s
@@ -85,6 +31,9 @@
   ✓ ssrf protection blocks internal and private ips                      0.01s
   ✓ intake facts are synced automatically                                0.08s
   ✓ conflicting facts are detected and can be resolved                   0.11s
+  ✓ evidence can be deleted by owner and cleans up facts                 0.10s
+  ✓ identity disambiguation detects similar business in same city        0.08s
+  ✓ conflict can be resolved with custom edited value                    0.10s
 
    PASS  Tests\Feature\GeminiIntegrationTest
   ✓ gemini service returns null when api key is unconfigured             0.02s
@@ -97,6 +46,11 @@
   ✓ multi user isolation on new endpoints                                0.12s
   ✓ published website is accessible publicly without authentication      0.09s
   ✓ unpublished website returns 404 publicly                             0.09s
+  ✓ section updates persist and unpublishing works                       0.11s
+
+Tests:    58 passed (217 assertions)
+Duration: 4.76s
+```
 
 --------------------------------------------------------------------------------
 Tests: 54 passed (199 assertions)

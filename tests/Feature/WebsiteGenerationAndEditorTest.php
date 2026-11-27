@@ -125,4 +125,60 @@ class WebsiteGenerationAndEditorTest extends TestCase
         $response = $this->get("/sites/{$project->slug}");
         $response->assertStatus(404);
     }
+
+    public function test_section_updates_persist_and_unpublishing_works(): void
+    {
+        $user = User::factory()->create();
+        $project = BusinessProject::create([
+            'user_id' => $user->id,
+            'name' => 'Rustic Table',
+            'city' => 'Austin',
+            'slug' => 'rustic-table',
+            'is_published' => true,
+            'status' => 'published',
+            'sections_data' => [
+                'sections' => ['Hero', 'Story', 'Services'],
+                'headline' => 'Original Headline',
+            ],
+            'theme_settings' => [
+                'color' => '#4F46E5',
+                'font' => 'Modern',
+                'spacing' => 48,
+            ],
+        ]);
+
+        // 1. Update sections via PATCH
+        $patchRes = $this->actingAs($user)->patch("/projects/{$project->id}/sections", [
+            'sections_data' => [
+                'sections' => ['Hero', 'Services', 'Story'], // Reordered
+                'hidden' => ['Story'], // Hidden
+                'headline' => 'New Handcrafted Feast',
+                'subheadline' => 'Locally sourced dining in Austin.',
+                'cta' => 'Book Table',
+            ],
+            'theme_settings' => [
+                'color' => '#16A34A',
+                'font' => 'Classic',
+                'spacing' => 64,
+            ],
+        ]);
+        $patchRes->assertSessionHasNoErrors();
+
+        $project->refresh();
+        $this->assertEquals('New Handcrafted Feast', $project->sections_data['headline']);
+        $this->assertEquals(['Story'], $project->sections_data['hidden']);
+        $this->assertEquals('#16A34A', $project->theme_settings['color']);
+
+        // 2. Unpublish website
+        $unpublishRes = $this->actingAs($user)->post("/projects/{$project->id}/unpublish");
+        $unpublishRes->assertSessionHasNoErrors();
+
+        $project->refresh();
+        $this->assertFalse($project->is_published);
+        $this->assertEquals('ready_to_edit', $project->status);
+
+        // 3. Confirm public site is now 404
+        $publicRes = $this->get("/sites/{$project->slug}");
+        $publicRes->assertStatus(404);
+    }
 }

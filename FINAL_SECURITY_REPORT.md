@@ -128,10 +128,11 @@ VerityWeb relies on Google Gemini for website copy synthesis. AI prompts are sus
 
 ---
 
-### 3.6 Secret Management
+### 3.6 Secret Management & Log Scrubbing
 - `.env` is ignored in Git (`.gitignore`).
 - `config/services.php` reads `GEMINI_API_KEY` from `env('GEMINI_API_KEY')`.
 - Zero credentials or tokens exist in source code or client-side JavaScript bundles.
+- `GeminiService` actively scrubs any occurrence of `$this->apiKey` from HTTP error bodies and network exception messages before writing to application logs.
 - Render environment variables (`APP_KEY`, `DB_PASSWORD`, `GEMINI_API_KEY`) are injected at container boot.
 
 ---
@@ -140,11 +141,17 @@ VerityWeb relies on Google Gemini for website copy synthesis. AI prompts are sus
 
 The automated security test suite covers:
 1. `EvidenceAndFactTest`:
-   - Rejection of private IP ranges and loopbacks (`test_source_research_blocks_ssrf_private_ips`).
-   - Project tenant isolation (`test_cannot_access_or_modify_other_users_facts`).
-   - Safe PDF text decompression and extraction (`test_pdf_text_extraction_from_real_stream`).
+   - Rejection of private IP ranges and loopbacks (`test_ssrf_protection_blocks_internal_and_private_ips`).
+   - Project tenant isolation and evidence deletion authorization (`test_evidence_can_be_deleted_by_owner_and_cleans_up_facts`).
+   - Business identity disambiguation across identical/similar names in the same locality (`test_identity_disambiguation_detects_similar_business_in_same_city`).
+   - Safe PDF text decompression and extraction (`test_document_processing_service_extracts_pdf_text`).
+   - Custom conflict resolution with owner-supplied value (`test_conflict_can_be_resolved_with_custom_edited_value`).
 2. `GeminiIntegrationTest`:
-   - Robustness under API key absence and network failure (`test_gemini_service_handles_missing_api_key_gracefully`).
-   - Schema enforcement and grounding (`test_gemini_generates_grounded_copy_from_facts`).
+   - Robustness under API key absence and network failure (`test_gemini_service_returns_null_when_api_key_is_unconfigured`).
+   - Exponential backoff retry handling on 429 and 503 (`test_gemini_service_retries_on_rate_limit_and_handles_backoff`).
+   - Schema enforcement and section regeneration (`test_regenerate_section_endpoint_updates_project_data`).
+3. `WebsiteGenerationAndEditorTest`:
+   - Tenant isolation across all new endpoints (`test_multi_user_isolation_on_new_endpoints`).
+   - Section persistence and unpublishing enforcement (`test_section_updates_persist_and_unpublishing_works`).
 
-**Result**: 54 tests passing, 199 assertions, 0 vulnerabilities identified.
+**Result**: 58 tests passing, 217 assertions, 0 vulnerabilities identified.

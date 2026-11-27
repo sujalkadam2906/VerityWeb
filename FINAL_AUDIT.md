@@ -81,5 +81,18 @@ This audit establishes the comprehensive baseline of what exists, what was simul
    - Update `Create.tsx` with actual multipart file uploads.
    - Update `Review.tsx` to display real extracted facts, source links, and interactive conflict resolution.
    - Update `Editor.tsx` to call live section regeneration endpoints.
-7. **Comprehensive Automated Testing**:
+8. Comprehensive Automated Testing:
    - Feature tests covering evidence upload, PDF extraction, SSRF blocking, Gemini mocking, fact conflict resolution, editor updates, publishing, and tenant isolation.
+
+---
+
+## 5. Post-889af35 Remediation & Release Verification
+
+In the final completion pass following commit `889af35`, all remaining architectural and product gaps have been closed:
+1. **FR-06 Business Identity Disambiguation**: Added `checkIdentityDisambiguation()` in `FactExtractionService` to detect identical or similar business names registered in the same locality, flagging an `identity_disambiguation` fact for user review.
+2. **FR-04 File Removal**: Added `destroyEvidence()` endpoint in `ProjectController` with ownership isolation, local storage file cleanup, and cascade deletion of facts extracted from the deleted document.
+3. **FR-08 Custom Conflict Resolution**: Added interactive inline editing in `Review.tsx` allowing business owners to input custom corrected values rather than merely choosing between two conflicting inputs.
+4. **FR-11 Section-Specific Editing**: Extended `Editor.tsx` with customized inspector controls for each section type (Hero, Story, Services, Operating Hours, Location & Contact) and bidirectional canvas synchronization.
+5. **FR-14 Dynamic Public Site Rendering**: Replaced static layout in `Public.tsx` with dynamic ordering and visibility based on `project.sections_data.sections` and `hidden` flags configured in the editor.
+6. **Gemini Key Scrubbing**: Hardened `GeminiService` to redact any API key strings from error responses or network exceptions before writing to application logs.
+7. **Automated Test Matrix**: Expanded to **58 automated feature and unit tests with 217 assertions**, all passing with zero errors. Full TypeScript compilation and production Vite build verified.

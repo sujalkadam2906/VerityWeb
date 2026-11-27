@@ -108,6 +108,40 @@ class FactExtractionService
                 ]
             );
         }
+
+        // 8. Identity Disambiguation Check (PRD FR-06)
+        $this->checkIdentityDisambiguation($project);
+    }
+
+    /**
+     * Check for ambiguous or duplicate business identities in the same locality.
+     * Prevents confusing businesses with identical or similar names (FR-06).
+     */
+    public function checkIdentityDisambiguation(BusinessProject $project): void
+    {
+        $similar = BusinessProject::where('city', $project->city)
+            ->where('id', '!=', $project->id)
+            ->where(function ($q) use ($project) {
+                $trimmed = strtolower(trim($project->name));
+                $q->whereRaw('LOWER(name) = ?', [$trimmed])
+                  ->orWhereRaw('LOWER(name) LIKE ?', ['%' . $trimmed . '%']);
+            })
+            ->first();
+
+        if ($similar) {
+            BusinessFact::updateOrCreate(
+                ['business_project_id' => $project->id, 'fact_key' => 'identity_disambiguation'],
+                [
+                    'fact_type' => 'identity',
+                    'fact_value' => "Distinct entity from [{$similar->name}] in {$project->city}",
+                    'source_label' => 'Identity Disambiguation Engine',
+                    'status' => 'needs_review',
+                    'confidence' => 0.8,
+                    'conflict_explanation' => "Another business with a similar name ('{$similar->name}') exists in {$project->city}. Please verify this is an independent business identity.",
+                    'user_confirmed' => false,
+                ]
+            );
+        }
     }
 
     /**

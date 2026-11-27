@@ -57,7 +57,8 @@ COPY --from=frontend /app/public/build /var/www/html/public/build
 RUN composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist
 
 # Copy Docker configurations
-COPY docker/nginx.conf /etc/nginx/conf.d/default.conf.template
+COPY docker/nginx.conf /etc/nginx/nginx.conf
+COPY docker/default.conf.template /etc/nginx/templates/default.conf.template
 COPY docker/supervisord.conf /etc/supervisord.conf
 COPY docker/entrypoint.sh /docker/entrypoint.sh
 

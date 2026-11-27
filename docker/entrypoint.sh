@@ -4,8 +4,10 @@ set -e
 # Default port to 80 if not set by Render
 export PORT="${PORT:-80}"
 
-# Substitute port into nginx configuration
-envsubst '${PORT}' < /etc/nginx/conf.d/default.conf.template > /etc/nginx/conf.d/default.conf
+# Substitute port into nginx configuration (clean up any default Alpine site configs)
+mkdir -p /etc/nginx/http.d
+rm -f /etc/nginx/http.d/* /etc/nginx/conf.d/*
+envsubst '${PORT}' < /etc/nginx/templates/default.conf.template > /etc/nginx/http.d/default.conf
 
 # Ensure writable directories exist with correct permissions
 mkdir -p /var/www/html/storage/framework/cache/data \

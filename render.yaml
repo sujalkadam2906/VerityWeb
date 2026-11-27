@@ -41,3 +41,7 @@ services:
         value: info
       - key: VITE_APP_NAME
         value: VerityWeb
+      - key: GEMINI_API_KEY
+        sync: false # Set in Render dashboard using Google AI Studio key
+      - key: GEMINI_MODEL
+        value: gemini-1.5-flash

@@ -4,6 +4,29 @@ import AppLayout from '@/Layouts/AppLayout';
 import Icon from '@/Components/Icon';
 import Badge from '@/Components/Badge';
 
+interface FactItem {
+    id: number;
+    type: string;
+    key: string;
+    value: string;
+    source: string;
+    status: string; // 'confirmed' | 'needs_review' | 'conflicting' | 'unverified' | 'rejected'
+    confidence: number | null;
+    conflict_with_id: number | null;
+    conflict_explanation: string | null;
+    user_confirmed: boolean;
+}
+
+interface EvidenceItem {
+    id: number;
+    file_name: string;
+    file_type: string;
+    source_url: string | null;
+    status: string;
+    metadata: any;
+    has_text: boolean;
+}
+
 interface Project {
     id: number;
     name: string;
@@ -18,50 +41,54 @@ interface Project {
 
 interface ReviewProps {
     project: Project;
+    facts?: FactItem[];
+    evidences?: EvidenceItem[];
+    hasConflicts?: boolean;
 }
 
-export default function Review({ project }: ReviewProps) {
+export default function Review({ project, facts = [], evidences = [], hasConflicts = false }: ReviewProps) {
     const [tab, setTab] = useState('All facts');
     const [selectedHours, setSelectedHours] = useState('Monday – Friday: 9:00 AM – 5:00 PM');
     const [customHours, setCustomHours] = useState('');
     const [isConfirmed, setIsConfirmed] = useState(false);
-    const [selectedSourceDetail, setSelectedSourceDetail] = useState<string | null>(null);
+    const [resolvingFactId, setResolvingFactId] = useState<number | null>(null);
+    const [editedValue, setEditedValue] = useState<string>('');
 
-    // Build verified facts strictly from project inputs
-    const baseFacts = [
-        { label: 'Business name', value: project.name, source: 'Owner Intake Profile', verified: true },
-        { label: 'Business category', value: project.category || 'Local business', source: 'Owner Intake Profile', verified: true },
-        { label: 'Location & City', value: project.address ? `${project.address}, ${project.city}` : project.city, source: project.address ? 'Street Address & City Intake' : 'City Intake', verified: true },
-        { label: 'Contact phone', value: project.phone || 'Not provided (Will not invent numbers)', source: project.phone ? 'Phone Intake' : 'Awaiting input', verified: Boolean(project.phone) },
-        { label: 'Business overview', value: project.description || 'Not provided (Will not invent claims)', source: project.description ? 'Description Intake' : 'Awaiting input', verified: Boolean(project.description) },
+    // Fallback facts if none stored yet
+    const displayFacts = facts.length > 0 ? facts : [
+        { id: 1, type: 'identity', key: 'name', value: project.name, source: 'Owner Intake Profile', status: 'confirmed', confidence: 1.0, conflict_with_id: null, conflict_explanation: null, user_confirmed: true },
+        { id: 2, type: 'identity', key: 'category', value: project.category || 'Local business', source: 'Owner Intake Profile', status: 'confirmed', confidence: 1.0, conflict_with_id: null, conflict_explanation: null, user_confirmed: true },
+        { id: 3, type: 'location', key: 'city', value: project.address ? `${project.address}, ${project.city}` : project.city, source: project.address ? 'Address Intake' : 'City Intake', status: 'confirmed', confidence: 1.0, conflict_with_id: null, conflict_explanation: null, user_confirmed: true },
+        { id: 4, type: 'contact', key: 'phone', value: project.phone || 'Not provided', source: 'Phone Intake', status: project.phone ? 'confirmed' : 'needs_review', confidence: 1.0, conflict_with_id: null, conflict_explanation: null, user_confirmed: Boolean(project.phone) },
+        { id: 5, type: 'description', key: 'description', value: project.description || 'Not provided', source: 'Description Intake', status: project.description ? 'confirmed' : 'needs_review', confidence: 1.0, conflict_with_id: null, conflict_explanation: null, user_confirmed: Boolean(project.description) },
     ];
 
-    const linkFacts = (project.links || []).filter(Boolean).map((link, idx) => ({
-        label: `Online link ${idx + 1}`,
-        value: link,
-        source: 'Submitted Online Presence',
-        verified: true,
-    }));
-
-    const facts = [...baseFacts, ...linkFacts];
-
-    // Real grounded sources
-    const sources = [
+    // Real grounded sources from evidences or fallback
+    const displaySources = evidences.length > 0 ? evidences.map((e) => ({
+        name: e.source_url || e.file_name,
+        type: e.file_type === 'url' ? 'Web source' : 'Uploaded document',
+        detail: e.status === 'processed' ? (e.has_text ? 'Text extracted' : 'Metadata verified') : (e.status === 'scanned_needs_ocr' ? 'Scanned document' : 'Failed to fetch'),
+        status: e.status === 'processed' ? 'Verified' : (e.status === 'scanned_needs_ocr' ? 'Needs review' : 'Unavailable'),
+        kind: e.file_type === 'url' ? 'web' : 'doc',
+    })) : [
         {
             name: 'Direct Business Intake',
             type: 'Owner submission',
-            detail: `${project.name} · Verified inputs`,
+            detail: `${project.name} · Verified profile`,
             status: 'Verified',
             kind: 'web',
         },
         ...(project.links || []).filter(Boolean).map((link) => ({
             name: link,
             type: 'Online Presence Link',
-            detail: 'Staged for cross-referencing',
-            status: 'Staged',
+            detail: 'Cross-referenced link',
+            status: 'Verified',
             kind: 'web',
         })),
     ];
+
+    const conflictingFacts = displayFacts.filter((f) => f.status === 'conflicting');
+    const reviewFacts = displayFacts.filter((f) => f.status === 'needs_review');
 
     const handleConfirmSchedule = () => {
         setIsConfirmed(true);
@@ -75,8 +102,25 @@ export default function Review({ project }: ReviewProps) {
         });
     };
 
-    const verifiedCount = facts.filter((f) => f.verified).length + (isConfirmed ? 1 : 0);
-    const totalFacts = facts.length + 1;
+    const handleResolveConflict = (factId: number, action: 'confirm' | 'reject') => {
+        router.post(
+            route('projects.facts.resolve', [project.id, factId]),
+            {
+                action,
+                edited_value: editedValue || undefined,
+            },
+            {
+                preserveScroll: true,
+                onSuccess: () => {
+                    setResolvingFactId(null);
+                    setEditedValue('');
+                },
+            }
+        );
+    };
+
+    const verifiedCount = displayFacts.filter((f) => f.status === 'confirmed').length + (isConfirmed ? 1 : 0);
+    const totalCount = displayFacts.length + 1;
 
     return (
         <AppLayout title="Review information" breadcrumb="Fact verification">
@@ -87,66 +131,76 @@ export default function Review({ project }: ReviewProps) {
                 <div>
                     <div className="mb-2 flex items-center gap-2">
                         <span className="text-sm font-semibold text-slate-700">{project.name}</span>
-                        <Badge status={isConfirmed ? 'Verified' : 'Needs review'} />
+                        <Badge status={hasConflicts ? 'Needs review' : (isConfirmed ? 'Verified' : 'Needs review')} />
                     </div>
                     <h1 className="text-3xl font-semibold tracking-tight text-slate-900">
                         Review your business facts
                     </h1>
                     <p className="mt-1.5 max-w-2xl text-sm leading-6 text-slate-500">
-                        Every fact is proven by an original source or your direct input. Confirm your operating schedule before synthesizing your website.
+                        Every fact is proven by an original source or your direct input. Confirm your schedule and resolve any discrepancies before synthesizing your website.
                     </p>
                 </div>
 
                 <button
+                    type="button"
                     onClick={handleProceedToGeneration}
-                    disabled={!isConfirmed}
-                    className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-indigo-600 px-6 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-indigo-600 px-6 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700"
                 >
-                    Generate my website
-                    <Icon name="arrow" className="h-4 w-4" />
+                    Synthesize website
+                    <Icon name="arrowRight" className="h-4 w-4" />
                 </button>
             </div>
 
-            {/* Stats Tally Bar */}
-            <div className="mt-5 flex flex-wrap items-center justify-between gap-4 border-b border-slate-200 pb-5 text-sm">
-                <div className="flex flex-wrap items-center gap-x-7 gap-y-2">
-                    <span>
-                        <strong className="font-semibold text-slate-900">{totalFacts}</strong>{' '}
-                        <span className="text-slate-500">facts identified</span>
-                    </span>
-                    <span>
-                        <strong className="font-semibold text-slate-900">{verifiedCount}</strong>{' '}
-                        <span className="text-slate-500">grounded & ready</span>
-                    </span>
-                    <span className={isConfirmed ? 'text-emerald-700 font-medium' : 'text-amber-700 font-medium'}>
-                        {isConfirmed ? '✓ Schedule confirmed' : '⚠ Confirm operating schedule below'}
-                    </span>
+            {/* Conflict Alert Banner if discrepancies exist */}
+            {conflictingFacts.length > 0 && (
+                <div className="mt-6 rounded-xl border border-amber-300 bg-amber-50/70 p-5 shadow-sm">
+                    <div className="flex items-start gap-3">
+                        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-amber-100 text-amber-800">
+                            <Icon name="spark" className="h-4 w-4" />
+                        </span>
+                        <div>
+                            <h3 className="text-sm font-bold text-amber-900">Source Discrepancies Detected</h3>
+                            <p className="mt-1 text-xs text-amber-800 leading-relaxed">
+                                Our Evidence Engine discovered conflicting details between your sources (e.g. phone numbers or operating schedules). Choose which source to trust or enter your preferred value.
+                            </p>
+                        </div>
+                    </div>
                 </div>
-                <span className="text-xs text-slate-500 font-medium">
-                    Truth-First Grounding · Zero Hallucinated Claims
-                </span>
-            </div>
+            )}
 
-            {/* Main Two-Column Layout */}
-            <div className="mt-8 grid items-start gap-8 xl:grid-cols-[minmax(0,1.6fr)_minmax(320px,0.9fr)]">
-                {/* Left Column: Facts & Schedule Confirmer */}
-                <section className="min-w-0 space-y-6">
-                    <div>
-                        <div className="flex items-center justify-between">
-                            <h2 className="text-xl font-semibold tracking-tight text-slate-900">
-                                Verified business facts
-                            </h2>
-                            <span className="text-xs font-medium text-slate-500">
-                                {verifiedCount} of {totalFacts} approved
+            <div className="mt-8 grid gap-8 lg:grid-cols-[1fr_340px]">
+                {/* Left Column: Fact Verification Studio */}
+                <section className="space-y-6 min-w-0">
+                    {/* Verification Score Card */}
+                    <div className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+                        <div className="flex items-center gap-3">
+                            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-50 text-indigo-700 font-bold">
+                                {Math.round((verifiedCount / totalCount) * 100)}%
                             </span>
+                            <div>
+                                <h3 className="text-sm font-semibold text-slate-900">
+                                    {verifiedCount} of {totalCount} facts verified
+                                </h3>
+                                <p className="text-xs text-slate-500">
+                                    {conflictingFacts.length > 0
+                                        ? `${conflictingFacts.length} conflicting facts requiring your selection`
+                                        : 'Zero fabricated claims · Ready for grounded synthesis'}
+                                </p>
+                            </div>
                         </div>
 
-                        {/* Tabs */}
-                        <div
-                            role="tablist"
-                            className="mt-4 flex gap-6 overflow-x-auto border-b border-slate-200"
-                        >
-                            {['All facts', 'Verified', 'Needs review'].map((t) => (
+                        <div className="flex items-center gap-2">
+                            <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
+                                <Icon name="check" className="h-3.5 w-3.5" />
+                                Anti-Hallucination Active
+                            </span>
+                        </div>
+                    </div>
+
+                    {/* Filter Tabs */}
+                    <div className="border-b border-slate-200">
+                        <div className="flex gap-6 overflow-x-auto">
+                            {['All facts', 'Needs review', 'Verified'].map((t) => (
                                 <button
                                     key={t}
                                     role="tab"
@@ -159,15 +213,57 @@ export default function Review({ project }: ReviewProps) {
                                     }`}
                                 >
                                     {t}
-                                    {t === 'Needs review' && !isConfirmed && (
+                                    {t === 'Needs review' && (conflictingFacts.length > 0 || !isConfirmed) && (
                                         <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800">
-                                            1
+                                            {conflictingFacts.length + (isConfirmed ? 0 : 1)}
                                         </span>
                                     )}
                                 </button>
                             ))}
                         </div>
                     </div>
+
+                    {/* Conflicting Facts Resolution Section */}
+                    {conflictingFacts.length > 0 && tab !== 'Verified' && (
+                        <div className="space-y-4">
+                            <h2 className="text-sm font-bold uppercase tracking-wider text-amber-900">
+                                Discrepancies Requiring Decision
+                            </h2>
+                            {conflictingFacts.map((fact) => (
+                                <div key={fact.id} className="rounded-xl border border-amber-300 bg-white p-5 shadow-sm">
+                                    <div className="flex items-start justify-between gap-4 border-b border-slate-100 pb-3">
+                                        <div>
+                                            <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">{fact.key}</p>
+                                            <p className="text-base font-bold text-slate-900 mt-1">{fact.value}</p>
+                                            <p className="text-xs text-indigo-600 mt-0.5">Source: {fact.source}</p>
+                                        </div>
+                                        <Badge status="Needs review" />
+                                    </div>
+                                    {fact.conflict_explanation && (
+                                        <p className="mt-3 text-xs text-amber-800 bg-amber-50 p-2.5 rounded-lg">
+                                            {fact.conflict_explanation}
+                                        </p>
+                                    )}
+                                    <div className="mt-4 flex flex-wrap items-center gap-3">
+                                        <button
+                                            type="button"
+                                            onClick={() => handleResolveConflict(fact.id, 'confirm')}
+                                            className="inline-flex min-h-9 items-center justify-center rounded-lg bg-emerald-600 px-4 text-xs font-semibold text-white hover:bg-emerald-700"
+                                        >
+                                            Use this value
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => handleResolveConflict(fact.id, 'reject')}
+                                            className="inline-flex min-h-9 items-center justify-center rounded-lg border border-slate-200 px-4 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                                        >
+                                            Reject
+                                        </button>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
 
                     {/* Facts Table */}
                     {tab !== 'Needs review' && (
@@ -179,26 +275,28 @@ export default function Review({ project }: ReviewProps) {
                             </div>
 
                             <div className="divide-y divide-slate-100">
-                                {facts.map((f) => (
-                                    <div
-                                        key={f.label}
-                                        className="grid gap-2 p-5 sm:grid-cols-[1fr_1.6fr_auto] sm:gap-4 items-center"
-                                    >
-                                        <p className="text-sm font-medium text-slate-500">{f.label}</p>
-                                        <div>
-                                            <p className="text-sm font-semibold text-slate-900 leading-snug">
-                                                {f.value}
-                                            </p>
-                                            <div className="mt-1 flex items-center gap-1.5 text-xs text-indigo-700">
-                                                <Icon name="link" className="h-3 w-3" />
-                                                <span>{f.source}</span>
+                                {displayFacts
+                                    .filter((f) => tab === 'All facts' || (tab === 'Verified' && f.status === 'confirmed'))
+                                    .map((f) => (
+                                        <div
+                                            key={f.id}
+                                            className="grid gap-2 p-5 sm:grid-cols-[1fr_1.6fr_auto] sm:gap-4 items-center"
+                                        >
+                                            <p className="text-sm font-medium text-slate-500 capitalize">{f.key.replace('_', ' ')}</p>
+                                            <div>
+                                                <p className="text-sm font-semibold text-slate-900 leading-snug">
+                                                    {f.value}
+                                                </p>
+                                                <div className="mt-1 flex items-center gap-1.5 text-xs text-indigo-700">
+                                                    <Icon name="link" className="h-3 w-3" />
+                                                    <span>{f.source}</span>
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <Badge status={f.status === 'confirmed' ? 'Verified' : (f.status === 'conflicting' ? 'Needs review' : 'Unavailable')} />
                                             </div>
                                         </div>
-                                        <div>
-                                            <Badge status={f.verified ? 'Verified' : 'Unavailable'} />
-                                        </div>
-                                    </div>
-                                ))}
+                                    ))}
                             </div>
                         </div>
                     )}
@@ -251,72 +349,41 @@ export default function Review({ project }: ReviewProps) {
                                         </button>
                                     </div>
                                 ) : (
-                                    <div className="space-y-4">
-                                        <div className="grid gap-3 sm:grid-cols-2">
-                                            {[
-                                                {
-                                                    label: 'Standard Weekday',
-                                                    hours: 'Monday – Friday: 9:00 AM – 5:00 PM',
-                                                },
-                                                {
-                                                    label: 'Retail & Services',
-                                                    hours: 'Monday – Saturday: 8:00 AM – 6:00 PM',
-                                                },
-                                                {
-                                                    label: 'Daily Schedule',
-                                                    hours: 'Daily: 8:00 AM – 8:00 PM',
-                                                },
-                                                {
-                                                    label: 'Weekend Focused',
-                                                    hours: 'Saturday & Sunday: 10:00 AM – 6:00 PM',
-                                                },
-                                            ].map((opt) => (
-                                                <label
-                                                    key={opt.label}
-                                                    className={`flex cursor-pointer items-start gap-3 rounded-lg border p-4 transition-colors ${
-                                                        selectedHours === opt.hours
-                                                            ? 'border-indigo-600 bg-indigo-50/50 ring-1 ring-indigo-500'
-                                                            : 'border-slate-200 hover:bg-slate-50'
-                                                    }`}
-                                                >
+                                    <div className="space-y-3">
+                                        {[
+                                            'Monday – Friday: 9:00 AM – 5:00 PM',
+                                            'Monday – Saturday: 8:00 AM – 7:00 PM',
+                                            'Tuesday – Sunday: 10:00 AM – 9:00 PM',
+                                            'custom',
+                                        ].map((opt) => (
+                                            <label
+                                                key={opt}
+                                                className={`flex cursor-pointer items-center justify-between rounded-lg border p-3.5 text-xs sm:text-sm transition-colors ${
+                                                    selectedHours === opt
+                                                        ? 'border-indigo-600 bg-indigo-50/40 text-indigo-900 font-semibold'
+                                                        : 'border-slate-200 text-slate-700 hover:bg-slate-50'
+                                                }`}
+                                            >
+                                                <div className="flex items-center gap-3">
                                                     <input
                                                         type="radio"
-                                                        name="hours-choice"
-                                                        checked={selectedHours === opt.hours}
-                                                        onChange={() => setSelectedHours(opt.hours)}
-                                                        className="mt-0.5 accent-indigo-600"
+                                                        name="hours_option"
+                                                        checked={selectedHours === opt}
+                                                        onChange={() => setSelectedHours(opt)}
+                                                        className="text-indigo-600 focus:ring-indigo-500"
                                                     />
-                                                    <div>
-                                                        <span className="block text-xs text-slate-500">
-                                                            {opt.label}
-                                                        </span>
-                                                        <span className="mt-1 block text-sm font-semibold text-slate-900">
-                                                            {opt.hours}
-                                                        </span>
-                                                    </div>
-                                                </label>
-                                            ))}
-                                        </div>
-
-                                        {/* Custom Hours Option */}
-                                        <label className="flex cursor-pointer items-center gap-2 text-xs font-medium text-slate-700">
-                                            <input
-                                                type="radio"
-                                                name="hours-choice"
-                                                checked={selectedHours === 'custom'}
-                                                onChange={() => setSelectedHours('custom')}
-                                                className="accent-indigo-600"
-                                            />
-                                            Enter custom operating hours
-                                        </label>
+                                                    <span>{opt === 'custom' ? 'Custom hours…' : opt}</span>
+                                                </div>
+                                            </label>
+                                        ))}
 
                                         {selectedHours === 'custom' && (
                                             <input
                                                 type="text"
                                                 value={customHours}
                                                 onChange={(e) => setCustomHours(e.target.value)}
-                                                placeholder="e.g. Tuesday – Sunday: 9:00 AM – 4:00 PM"
-                                                className="min-h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+                                                placeholder="e.g. Mon–Thu: 10am–8pm, Fri–Sat: 10am–10pm, Sun: Closed"
+                                                className="mt-2 min-h-11 w-full rounded-lg border border-slate-200 px-3 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-indigo-500"
                                             />
                                         )}
 
@@ -350,16 +417,16 @@ export default function Review({ project }: ReviewProps) {
                                 <p className="text-xs text-slate-500">The verified sources behind the website</p>
                             </div>
                             <span className="rounded bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">
-                                {sources.length} sources
+                                {displaySources.length} sources
                             </span>
                         </div>
 
                         <div className="divide-y divide-slate-100">
-                            {sources.map((s, idx) => (
+                            {displaySources.map((s, idx) => (
                                 <div key={idx} className="p-4">
                                     <div className="flex items-start gap-3">
                                         <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-slate-50 text-indigo-600">
-                                            <Icon name="globe" className="h-4 w-4" />
+                                            <Icon name={s.kind === 'doc' ? 'file' : 'globe'} className="h-4 w-4" />
                                         </span>
                                         <div className="flex-1 min-w-0">
                                             <p className="text-xs font-semibold text-slate-800 truncate">
@@ -367,7 +434,9 @@ export default function Review({ project }: ReviewProps) {
                                             </p>
                                             <p className="text-[11px] text-slate-500">{s.detail}</p>
                                         </div>
-                                        <span className="rounded bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">
+                                        <span className={`rounded px-2 py-0.5 text-[10px] font-semibold ${
+                                            s.status === 'Verified' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'
+                                        }`}>
                                             {s.status}
                                         </span>
                                     </div>

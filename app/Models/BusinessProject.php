@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class BusinessProject extends Model
 {
@@ -37,5 +38,15 @@ class BusinessProject extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function evidences(): HasMany
+    {
+        return $this->hasMany(BusinessEvidence::class, 'business_project_id');
+    }
+
+    public function facts(): HasMany
+    {
+        return $this->hasMany(BusinessFact::class, 'business_project_id');
     }
 }

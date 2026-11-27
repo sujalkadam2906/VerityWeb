@@ -5,9 +5,17 @@ import Icon from '@/Components/Icon';
 
 export default function Create() {
     const [step, setStep] = useState(0);
-    const [uploadedFiles, setUploadedFiles] = useState<Array<{ name: string; size: number }>>([]);
 
-    const { data, setData, post, processing, errors } = useForm({
+    const { data, setData, post, processing, errors } = useForm<{
+        name: string;
+        city: string;
+        category: string;
+        address: string;
+        phone: string;
+        description: string;
+        links: string[];
+        files: File[];
+    }>({
         name: '',
         city: '',
         category: '',
@@ -15,6 +23,7 @@ export default function Create() {
         phone: '',
         description: '',
         links: ['', '', ''],
+        files: [],
     });
 
     const updateLink = (index: number, value: string) => {
@@ -32,28 +41,22 @@ export default function Create() {
         const dropped = Array.from(e.dataTransfer.files).filter((f) =>
             /\.(pdf|jpe?g|png|webp)$/i.test(f.name)
         );
-        setUploadedFiles((prev) => [
-            ...prev,
-            ...dropped.map((f) => ({ name: f.name, size: f.size })),
-        ]);
+        setData('files', [...data.files, ...dropped]);
     };
 
     const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (!e.target.files) return;
         const selected = Array.from(e.target.files);
-        setUploadedFiles((prev) => [
-            ...prev,
-            ...selected.map((f) => ({ name: f.name, size: f.size })),
-        ]);
+        setData('files', [...data.files, ...selected]);
     };
 
     const removeFile = (index: number) => {
-        setUploadedFiles((prev) => prev.filter((_, i) => i !== index));
+        setData('files', data.files.filter((_, i) => i !== index));
     };
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        post(route('projects.store'));
+        post(route('projects.store'), { forceFormData: true });
     };
 
     const canContinue = () => {
@@ -275,8 +278,8 @@ export default function Create() {
                         {/* Step 3: Upload Business Files */}
                         {step === 2 && (
                             <div className="space-y-5">
-                                <div className="rounded-lg bg-amber-50 p-4 border border-amber-200 text-xs text-amber-800 leading-relaxed">
-                                    <strong>File Staging Area:</strong> Documents uploaded here are preserved with your project. Note: In this MVP version, automatic background OCR extraction is not active; website generation is grounded directly on your verified profile fields and confirmed operating schedule.
+                                <div className="rounded-lg bg-emerald-50 p-4 border border-emerald-200 text-xs text-emerald-800 leading-relaxed">
+                                    <strong>Evidence Ingestion:</strong> Documents uploaded here are securely processed by VerityWeb's Evidence Engine. Text-based PDFs and business menus are extracted to ground your business facts.
                                 </div>
 
                                 <label
@@ -301,13 +304,13 @@ export default function Create() {
                                     />
                                 </label>
 
-                                {uploadedFiles.length === 0 ? (
+                                {data.files.length === 0 ? (
                                     <p className="text-center text-xs text-slate-500">
                                         No files attached yet. You can also skip this and add them later.
                                     </p>
                                 ) : (
                                     <div className="divide-y divide-slate-100 rounded-lg border border-slate-200 bg-white">
-                                        {uploadedFiles.map((file, idx) => (
+                                        {data.files.map((file, idx) => (
                                             <div
                                                 key={idx}
                                                 className="flex items-center justify-between p-3.5"
@@ -319,7 +322,7 @@ export default function Create() {
                                                             {file.name}
                                                         </p>
                                                         <p className="text-xs text-slate-400">
-                                                            {(file.size / 1024).toFixed(0)} KB · Ready to process
+                                                            {(file.size / 1024).toFixed(0)} KB · Ready to upload & extract
                                                         </p>
                                                     </div>
                                                 </div>
@@ -364,7 +367,7 @@ export default function Create() {
                                         title: 'Business files',
                                         stepIndex: 2,
                                         summary:
-                                            uploadedFiles.map((f) => f.name).join(', ') ||
+                                            data.files.map((f: File) => f.name).join(', ') ||
                                             'No documents uploaded',
                                     },
                                 ].map((sec) => (

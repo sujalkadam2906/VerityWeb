@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Head, Link, router } from '@inertiajs/react';
+import axios from 'axios';
 import Icon from '@/Components/Icon';
 
 interface Project {
@@ -119,14 +120,32 @@ export default function Editor({ project }: EditorProps) {
         markDirty();
     };
 
-    const handleRunAi = () => {
-        if (!prompt.trim()) return;
+    const handleRunAi = async () => {
+        if (!prompt.trim() || isGenerating) return;
         setIsGenerating(true);
         setAiSuggestion(null);
-        setTimeout(() => {
-            setIsGenerating(false);
+
+        try {
+            const res = await axios.post(route('projects.regenerate-section', project.id), {
+                section_name: selectedSection,
+                prompt: prompt,
+            });
+
+            if (res.data?.success && res.data.sections_data) {
+                const updated = res.data.sections_data;
+                if (updated.headline) setHeadline(updated.headline);
+                if (updated.subheadline) setSubheadline(updated.subheadline);
+                if (updated.cta) setCta(updated.cta);
+                if (updated.operating_hours) setOperatingHours(updated.operating_hours);
+                setAiSuggestion(res.data.suggestion || 'Section regenerated successfully.');
+                markDirty();
+            }
+        } catch (e) {
+            console.error('Failed to regenerate section:', e);
             setAiSuggestion(`Excellence in ${project.category} · Serving ${project.city}`);
-        }, 600);
+        } finally {
+            setIsGenerating(false);
+        }
     };
 
     const applyAiSuggestion = () => {

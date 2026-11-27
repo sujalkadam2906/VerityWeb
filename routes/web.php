@@ -23,6 +23,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // Review & Verification
     Route::get('/projects/{project}/review', [ProjectController::class, 'review'])->name('projects.review');
     Route::post('/projects/{project}/confirm-facts', [ProjectController::class, 'confirmFacts'])->name('projects.confirm-facts');
+    Route::post('/projects/{project}/facts/{fact}/resolve', [ProjectController::class, 'resolveFact'])->name('projects.facts.resolve');
 
     // Generation
     Route::get('/projects/{project}/generation', [ProjectController::class, 'generation'])->name('projects.generation');
@@ -31,6 +32,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // Website Editor
     Route::get('/projects/{project}/editor', [ProjectController::class, 'editor'])->name('projects.editor');
     Route::patch('/projects/{project}/sections', [ProjectController::class, 'updateSections'])->name('projects.update-sections');
+    Route::post('/projects/{project}/regenerate-section', [ProjectController::class, 'regenerateSection'])->name('projects.regenerate-section');
 
     // Publishing
     Route::get('/projects/{project}/publish', [ProjectController::class, 'publish'])->name('projects.publish');

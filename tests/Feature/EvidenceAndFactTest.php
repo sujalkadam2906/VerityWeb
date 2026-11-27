@@ -80,6 +80,39 @@ class EvidenceAndFactTest extends TestCase
         Storage::disk('local')->assertExists($evidence->file_path);
     }
 
+    public function test_document_processing_service_rejects_unsupported_file_types(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Unsupported file type');
+
+        $user = User::factory()->create();
+        $project = BusinessProject::create([
+            'user_id' => $user->id,
+            'name' => 'Safe Store',
+            'city' => 'Seattle',
+            'slug' => 'safe-store',
+        ]);
+
+        $service = new DocumentProcessingService();
+        $file = UploadedFile::fake()->create('malicious.exe', 100, 'application/x-msdownload');
+
+        $service->processUpload($project, $file);
+    }
+
+    public function test_project_store_rejects_disallowed_file_types(): void
+    {
+        $user = User::factory()->create();
+        $file = UploadedFile::fake()->create('malicious.sh', 50, 'text/x-shellscript');
+
+        $response = $this->actingAs($user)->post('/projects', [
+            'name' => 'Malicious Project',
+            'city' => 'Dallas',
+            'files' => [$file],
+        ]);
+
+        $response->assertSessionHasErrors('files.0');
+    }
+
     public function test_ssrf_protection_blocks_internal_and_private_ips(): void
     {
         $service = new SourceResearchService();

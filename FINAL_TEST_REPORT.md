@@ -2,8 +2,8 @@
 
 **Execution Date:** November 27, 2026  
 **Test Frameworks:** PHPUnit 12.5.12, TypeScript 5.7.0, Vite 6.4.6  
-**Total Tests:** 58  
-**Total Assertions:** 217  
+**Total Tests:** 60  
+**Total Assertions:** 221  
 **Failures / Errors:** 0  
 **Status:** **100% PASSED**
 
@@ -28,6 +28,8 @@
   ✓ document processing service extracts pdf text                        0.02s
   ✓ scanned pdf without text is detected                                 0.01s
   ✓ safe file upload and storage with project association                0.08s
+  ✓ document processing service rejects unsupported file types           0.01s
+  ✓ project store rejects disallowed file types                          0.08s
   ✓ ssrf protection blocks internal and private ips                      0.01s
   ✓ intake facts are synced automatically                                0.08s
   ✓ conflicting facts are detected and can be resolved                   0.11s
@@ -48,8 +50,8 @@
   ✓ unpublished website returns 404 publicly                             0.09s
   ✓ section updates persist and unpublishing works                       0.11s
 
-Tests:    58 passed (217 assertions)
-Duration: 4.76s
+Tests:    60 passed (221 assertions)
+Duration: 4.57s
 ```
 
 --------------------------------------------------------------------------------

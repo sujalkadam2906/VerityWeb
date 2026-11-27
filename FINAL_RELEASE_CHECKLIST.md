@@ -37,7 +37,7 @@
   - Interactive decision studio supporting "Use this value", "Reject", and inline "Edit & Use" custom value correction.
 - [x] **FR-09: Fact-Grounded AI Website Generation**:
   - Anti-hallucination prompting injecting only confirmed facts as ground truth.
-  - Strict JSON schema enforcement via Google Gemini API (`gemini-2.5-flash` / `gemini-1.5-flash`).
+  - Strict JSON schema enforcement via Google Gemini API (`gemini-1.5-flash` / `gemini-2.5-flash`).
   - Grounded deterministic fallback when Gemini is offline or unconfigured.
 - [x] **FR-10 & FR-11: Website Preview & Interactive Editor**:
   - Multi-viewport switcher (Desktop, Tablet, Mobile) with responsive rendering.
@@ -62,11 +62,13 @@
 ---
 
 ### Category 2: Locally Tested (Automated Suite)
-- **58 Feature & Unit Tests (217 assertions) passing with 0 failures**:
+- **60 Feature & Unit Tests (221 assertions) passing with 0 failures**:
   - `EvidenceAndFactTest`:
     - PDF text stream extraction.
     - Scanned PDF detection.
-    - Safe upload storage and project association.
+    - Safe file upload and storage with project association.
+    - Document processing rejection of disallowed file types (`malicious.exe`).
+    - Project intake validation rejecting disallowed file extensions (`malicious.sh`).
     - SSRF firewall blocking private IPs, loopback, and metadata endpoints.
     - Intake fact synchronization.
     - Automated conflict detection and resolution.
@@ -112,27 +114,34 @@
 ### Category 5: Not Yet Live-Verified (Requires Production User Run)
 - [ ] End-to-end user session creating a live business on `verityweb.onrender.com` with real Gemini API key and validating live Gemini copywriting in Render container logs.
 - [ ] Verification of real PDF upload on production with subsequent public site publication on live Render URL.
+- [ ] Confirmation that manual live production testing is intentionally pending user authorization.
 
 ---
 
-## 2. Known Limitations & Architecture Constraints
+## 2. Accurate Claims, Boundaries & Technical Limitations
 
-1. **Render Web Service Ephemeral Disk Storage**:
-   - **Constraint**: Standard Render web services run in ephemeral Docker containers. If the service restarts or redeploys, files saved to the local filesystem (`storage/app/private/evidence/`) are reset unless a persistent Render Disk is mounted.
-   - **Mitigation Implemented**: VerityWeb extracts all critical text and structured metadata into the persistent Supabase database (`business_evidences.extracted_text`, `business_evidences.metadata`, `business_facts.fact_value`) immediately during intake. Fact verification, AI generation, and website rendering remain 100% operational across restarts. For permanent binary file archiving (e.g. original PDF downloads), an S3/R2 storage adapter (`league/flysystem-aws-s3-v3`) can be configured.
-2. **Scanned PDF / Image-Only Menus (OCR)**:
-   - **Constraint**: Pure-PHP PDF stream extraction parses digital text objects (`BT ... ET`, `Tj`, `TJ`). Image-only scanned PDFs have no font/text streams.
-   - **Mitigation Implemented**: The engine detects scanned PDFs (`is_scanned: true`), flags them as `scanned_needs_ocr`, and alerts the user to confirm their business schedule and details manually during review.
-3. **Gemini API Rate Limiting (Free Tier)**:
-   - **Constraint**: Google AI Studio free tier enforces rate limits (e.g., 15 RPM).
-   - **Mitigation Implemented**: `GeminiService` implements exponential backoff on 429/503 responses and seamlessly falls back to the deterministic generation engine so user workflows never crash.
+1. **OCR Boundaries**:
+   - Pure-PHP PDF stream extraction decompresses and parses digital font and text operator streams (`BT ... ET`, `Tj`, `TJ`). It does **not** execute optical character recognition on scanned pixel raster images.
+   - When a PDF is scanned or image-only, the system detects this (`is_scanned: true`), flags the evidence as `scanned_needs_ocr`, and prompts the user to enter and confirm their business schedule and details directly during review.
+2. **Image Processing Boundaries**:
+   - The engine validates image uploads (JPEG, PNG, WEBP) and extracts dimensional metadata (`width`, `height`, `channels` via `getimagesize`). It does not run automated image background removal, vectorization, or computer-vision object recognition.
+3. **Render Web Service Ephemeral Disk Storage**:
+   - Standard Render web services run on ephemeral container filesystems. Physical binary uploads saved in `storage/app/private/evidence/` will reset upon container redeployments unless a Render Persistent Disk is attached.
+   - **Crucial Architecture Safeguard**: Extracted text, structured metadata, and confirmed business facts are permanently stored in the Supabase PostgreSQL database (`business_evidences.extracted_text`, `business_evidences.metadata`, `business_facts.fact_value`). Grounded generation, editing, and publishing continue to function across container restarts without data loss.
+4. **Source Research & Web Scraping Scope**:
+   - `SourceResearchService` safely extracts public meta tags, titles, and body text with strict SSRF defense. It does **not** solve CAPTCHAs, bypass anti-bot challenges (Cloudflare Turnstile), or access login-protected portals.
+5. **Email Delivery Scope**:
+   - Email verification and password resets are fully implemented and automated-tested. In default Render deployment, `MAIL_MAILER=log` writes email payloads to the application log rather than dispatching via an SMTP relay, unless an external service (Postmark/Resend/SES) credentials are configured.
+6. **Gemini Live Integration & Release Gate Status**:
+   - The Gemini integration has been tested via comprehensive unit and mock feature tests. The live production API key is configured on Render, but manual production verification is intentionally pending user execution.
+   - The application is a **verified Release Candidate**, not proclaimed "production-verified" ahead of manual user verification.
 
 ---
 
 ## 3. Verification Commands Summary
 
 ```bash
-# 1. Run full PHPUnit test suite (58 passed, 217 assertions)
+# 1. Run full PHPUnit test suite (60 passed, 221 assertions)
 php artisan test
 
 # 2. Run TypeScript type check (0 errors)
